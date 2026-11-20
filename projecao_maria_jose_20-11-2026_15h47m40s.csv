@@ -1,0 +1,14 @@
+﻿Mês;Cliente;Categoria;Aluguel Mensal (R$);Parcela Taxa Contratual (R$);Total Previsto no Mês (R$)
+Mês 01;Maria José;Apartamento;1200,00;400,00;1600,00
+Mês 02;Maria José;Apartamento;1200,00;400,00;1600,00
+Mês 03;Maria José;Apartamento;1200,00;400,00;1600,00
+Mês 04;Maria José;Apartamento;1200,00;400,00;1600,00
+Mês 05;Maria José;Apartamento;1200,00;400,00;1600,00
+Mês 06;Maria José;Apartamento;1200,00;0,00;1200,00
+Mês 07;Maria José;Apartamento;1200,00;0,00;1200,00
+Mês 08;Maria José;Apartamento;1200,00;0,00;1200,00
+Mês 09;Maria José;Apartamento;1200,00;0,00;1200,00
+Mês 10;Maria José;Apartamento;1200,00;0,00;1200,00
+Mês 11;Maria José;Apartamento;1200,00;0,00;1200,00
+Mês 12;Maria José;Apartamento;1200,00;0,00;1200,00
+TOTAL (12 MESES);-;-;14400,00;2000,00;16400,00

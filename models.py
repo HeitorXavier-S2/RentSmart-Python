@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import csv
-
+from datetime import datetime
+import unicodedata
 
 # Função auxiliar para deixar os valores no padrão brasileiro (ex: R$ 1.250,00)
 def formatar_moeda(valor):
@@ -50,7 +51,7 @@ class Apartamento(Imovel):
         if self.quartos == 2:
             adicionais.append(("Adicional 2 quartos", 200.00))
         if self.tem_garagem:
-            adicionais.append(("Vaga de garagem", 300.00))
+            adicionais.append(("Vaga de garagem (1 vaga)", 300.00))
         return adicionais
 
     # Regra exclusiva do apartamento: 5% de desconto sobre o total (base + adicionais) se não tiver crianças
@@ -73,7 +74,7 @@ class Casa(Imovel):
         if self.quartos == 2:
             adicionais.append(("Adicional 2 quartos", 250.00))
         if self.tem_garagem:
-            adicionais.append(("Vaga de garagem", 300.00))
+            adicionais.append(("Vaga de garagem (1 vaga)", 300.00))
         return adicionais
 
 
@@ -91,65 +92,84 @@ class Estudio(Imovel):
             adicionais.append(("Pacote estacionamento (2 vagas)", 250.00))
             if self.vagas_extras > 0:
                 custo_extras = self.vagas_extras * 60.00
-                adicionais.append((f"Vagas extras ({self.vagas_extras}x)", custo_extras))
+                adicionais.append((f"Vagas extras ({self.vagas_extras}x R$ 60,00)", custo_extras))
         return adicionais
 
 
-# Classe responsável por juntar o imóvel escolhido com a taxa contratual,
+# Classe responsável por juntar o imóvel escolhido com os dados do cliente e a taxa contratual,
 # mostrar o resumo na tela e gerar a planilha CSV de 12 meses.
 class Orcamento:
     TAXA_CONTRATUAL = 2000.00
 
-    def __init__(self, imovel, parcelas_taxa):
+    def __init__(self, cliente, imovel, parcelas_taxa):
+        self.cliente = cliente
         self.imovel = imovel
         self.parcelas_taxa = parcelas_taxa
 
     def calcular_parcela_taxa(self):
         return self.TAXA_CONTRATUAL / self.parcelas_taxa
 
-    # Mostra todo o detalhamento no terminal para o cliente entender como o valor foi formado
+    # Limpa acentos, apóstrofos e espaços do nome para gerar um nome de arquivo seguro no sistema operacional
+    def _normalizar_nome_arquivo(self):
+        sem_acentos = unicodedata.normalize("NFKD", self.cliente).encode("ASCII", "ignore").decode("ASCII")
+        limpo = sem_acentos.replace("'", "").replace("-", "_")
+        return "_".join(limpo.lower().strip().split())
+
+    # Mostra todo o detalhamento no terminal alinhado em colunas para facilitar a leitura
     def exibir_resumo(self):
         aluguel_final = self.imovel.calcular_aluguel_mensal()
         desconto = self.imovel.calcular_desconto()
         parcela_taxa = self.calcular_parcela_taxa()
+        largura = 56
 
-        print("\n--------------------------------------------------")
-        print("           ORÇAMENTO DE LOCAÇÃO - RENTSMART")
-        print("--------------------------------------------------")
-        print(f"Tipo de imóvel: {self.imovel.tipo}")
-        print(f"Aluguel-base:   {formatar_moeda(self.imovel.valor_base)}")
+        print("\n" + "=" * largura)
+        print("R.M IMÓVEIS - RESUMO DO ORÇAMENTO".center(largura))
+        print("=" * largura)
+        print(f"  Cliente             : {self.cliente}")
+        print(f"  Categoria do Imóvel : {self.imovel.tipo}")
+        print(f"  Aluguel-Base        : {formatar_moeda(self.imovel.valor_base):>30}")
+        print("-" * largura)
 
         adicionais = self.imovel.obter_adicionais()
         if adicionais:
-            print("\nAdicionais aplicados:")
+            print("  ADICIONAIS MENSAIS:")
             for descricao, valor in adicionais:
-                print(f"  + {descricao}: {formatar_moeda(valor)}")
+                print(f"   + {descricao:<34} {formatar_moeda(valor):>14}")
         else:
-            print("\nAdicionais aplicados: Nenhum")
+            print("  ADICIONAIS MENSAIS  : Nenhum")
 
         if desconto > 0:
-            print(f"\nDesconto (5% sem crianças): -{formatar_moeda(desconto)}")
+            print("-" * largura)
+            print("  DESCONTOS:")
+            print(f"   - Desconto 5% (sem crianças)       -{formatar_moeda(desconto):>14}")
 
-        print("--------------------------------------------------")
-        print(f"ALUGUEL MENSAL FINAL: {formatar_moeda(aluguel_final)}")
-        print("--------------------------------------------------")
+        print("=" * largura)
+        print(f"  ALUGUEL MENSAL FINAL                {formatar_moeda(aluguel_final):>16}")
+        print("=" * largura)
 
         # Exibe a taxa separada do aluguel, conforme pedido nas regras da imobiliária
-        print("\nTaxa Contratual (cobrada separadamente do aluguel):")
-        print(f"  Valor total:  {formatar_moeda(self.TAXA_CONTRATUAL)}")
-        print(f"  Parcelamento: {self.parcelas_taxa}x de {formatar_moeda(parcela_taxa)}")
-        print("--------------------------------------------------")
+        print("  TAXA CONTRATUAL (COBRADA SEPARADAMENTE DO ALUGUEL)")
+        print("-" * largura)
+        print(f"  Valor Total da Taxa                 {formatar_moeda(self.TAXA_CONTRATUAL):>16}")
+        print(f"  Condição Escolhida: {self.parcelas_taxa}x de {formatar_moeda(parcela_taxa)}")
+        print("=" * largura)
 
-# Cria o arquivo CSV com a projeção mês a mês do primeiro ano de contrato
-    def gerar_csv(self, nome_arquivo="projecao_12_meses.csv"):
+    # Cria o arquivo CSV com a projeção mês a mês do primeiro ano de contrato
+    def gerar_csv(self):
         aluguel_mensal = self.imovel.calcular_aluguel_mensal()
         parcela_taxa = self.calcular_parcela_taxa()
+
+        # Gera um nome único com o nome do cliente e a data/hora atual para não sobrescrever os anteriores
+        cliente_limpo = self._normalizar_nome_arquivo()
+        carimbo_tempo = datetime.now().strftime("%d-%m-%Y_%Hh%Mm%Ss")
+        nome_arquivo = f"projecao_{cliente_limpo}_{carimbo_tempo}.csv"
 
         # O encoding 'utf-8-sig' e o separador ';' fazem o arquivo abrir direitinho nas colunas do Excel
         with open(nome_arquivo, mode="w", newline="", encoding="utf-8-sig") as arquivo:
             writer = csv.writer(arquivo, delimiter=";")
             writer.writerow([
                 "Mês",
+                "Cliente",
                 "Categoria",
                 "Aluguel Mensal (R$)",
                 "Parcela Taxa Contratual (R$)",
@@ -163,6 +183,7 @@ class Orcamento:
 
                 writer.writerow([
                     f"Mês {mes:02d}",
+                    self.cliente,
                     self.imovel.tipo,
                     f"{aluguel_mensal:.2f}".replace(".", ","),
                     f"{taxa_mes:.2f}".replace(".", ","),
@@ -172,6 +193,7 @@ class Orcamento:
             # Linha final consolidando o total acumulado nos 12 meses
             writer.writerow([
                 "TOTAL (12 MESES)",
+                "-",
                 "-",
                 f"{(aluguel_mensal * 12):.2f}".replace(".", ","),
                 f"{self.TAXA_CONTRATUAL:.2f}".replace(".", ","),
